@@ -6,6 +6,7 @@
 #define HVC_TYPE_MISC			(0x9)
 #define HVC_TYPE_VMBOX			(0xa)
 #define HVC_TYPE_DEBUG_CONSOLE		(0xb)
+#define HVC_TYPE_BPF			(0xc)
 
 #define HVC_CALL_BASE			(0xc0000000)
 
@@ -15,6 +16,7 @@
 #define HVC_MISC_FN(n)			HVC_CALL_NUM(HVC_TYPE_MISC, n)
 #define HVC_VMBOX_FN(n)			HVC_CALL_NUM(HVC_TYPE_VMBOX, n)
 #define HVC_VMBOX_DEBUG_CONSOLE(n)	HVC_CALL_NUM(HVC_TYPE_DEBUG_CONSOLE, n)
+#define HVC_BPF_FN(n)			HVC_CALL_NUM(HVC_TYPE_BPF, n)
 
 /* hypercall for vm releated operation */
 #define	HVC_VM_CREATE			HVC_VM0_FN(0)
@@ -46,6 +48,11 @@
 #define HVC_DC_WRITE			HVC_VMBOX_DEBUG_CONSOLE(3)
 #define HVC_DC_OPEN			HVC_VMBOX_DEBUG_CONSOLE(4)
 #define HVC_DC_CLOSE			HVC_VMBOX_DEBUG_CONSOLE(5)
+
+/* hypercall for eBPF isolation releated operation */
+#define HVC_BPF_CREATE      HVC_BPF_FN(0)
+#define HVC_BPF_DESTROY     HVC_BPF_FN(1)
+#define HVC_BPF_MMAP        HVC_BPF_FN(2)
 
 static inline unsigned long __minos_hvc(uint32_t id, unsigned long a0,
        unsigned long a1, unsigned long a2, unsigned long a3,
@@ -172,6 +179,21 @@ static inline unsigned long get_vm_capability(void)
 static inline int vm_is_host_vm(void)
 {
 	return !!(get_vm_capability() & VM_CAP_HOST);
+}
+
+static inline int bpf_create(void)
+{
+	return minos_hvc0(HVC_BPF_CREATE);
+}
+
+static inline int bpf_destroy(void)
+{
+	return minos_hvc0(HVC_BPF_DESTROY);
+}
+
+static inline int bpf_mmap(void)
+{
+	return minos_hvc0(HVC_BPF_MMAP);
 }
 
 #endif

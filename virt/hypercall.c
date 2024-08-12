@@ -99,7 +99,7 @@ static int vm_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 		change_log_level((unsigned int)args[0]);
 		break;
 	default:
-		pr_err("unsupport vm hypercall");
+		pr_err("unsupport vm hypercall\n");
 		break;
 	}
 
@@ -141,8 +141,30 @@ static int misc_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 	HVC_RET1(c, -EINVAL);
 }
 
+static int bpf_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
+{
+	// int ret = 114514;
+
+	switch (id) {
+	case HVC_BPF_CREATE:
+		HVC_RET1(c, 1111);
+		break;
+	case HVC_BPF_DESTROY:
+		HVC_RET1(c, 2222);
+		break;
+	case HVC_BPF_MMAP:
+		HVC_RET1(c, 3333);
+		break;
+	default:
+		break;
+	}
+}
+
 DEFINE_HVC_HANDLER("vm_hvc_handler", HVC_TYPE_VM0,
 		HVC_TYPE_VM0, vm_hvc_handler);
 
 DEFINE_HVC_HANDLER("misc_hvc_handler", HVC_TYPE_MISC,
 		HVC_TYPE_MISC, misc_hvc_handler);
+
+DEFINE_HVC_HANDLER("bpf_hvc_handler", HVC_TYPE_BPF,
+		HVC_TYPE_BPF, bpf_hvc_handler);

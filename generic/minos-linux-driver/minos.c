@@ -46,9 +46,9 @@
 #include <linux/of.h>
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0)
+// #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0)
 #include <linux/sched/mm.h>
-#endif
+// #endif
 
 #ifdef CONFIG_ARM64
 #include <asm/pgtable-types.h>
