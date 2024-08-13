@@ -36,7 +36,7 @@
 			type = "linux";
 			kernel_image = "Image";
 			dtb_image = "qemu-virt.dtb";
-			vcpus = <1>;
+			vcpus = <2>;
 			entry = <0x0 0x46680000>;
 			setup_data = <0x0 0x50000000>;
 			vcpu_affinity = <0 1 2 3>;

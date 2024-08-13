@@ -24,6 +24,7 @@
 #include <virt/vmcs.h>
 #include <virt/os.h>
 #include <virt/vm_pm.h>
+#include <bpf/bpf_dev.h>
 
 static int vm_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 {
@@ -147,7 +148,8 @@ static int bpf_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 
 	switch (id) {
 	case HVC_BPF_CREATE:
-		HVC_RET1(c, 1111);
+        bpf_dev_create();
+		HVC_RET1(c, 11111);
 		break;
 	case HVC_BPF_DESTROY:
 		HVC_RET1(c, 2222);
