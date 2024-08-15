@@ -8,7 +8,7 @@
 
 	chosen {
 		minos,stdout = "pl011";
-		bootargs = "bootwait=3 tty=vm1 rootfs=virtio-blk.drv";
+		bootargs = "bootwait=1 tty=vm1 rootfs=virtio-blk.drv";
 		minos,ramdisk-start = <0x0 0x44000000>;
 		minos,ramdisk-end = <0x0 0x4645A000>;
 	};
@@ -26,6 +26,18 @@
 		reg = < 0x00 0x40000000 0x01 0x00 >;
 		device_type = "memory";
 	};
+
+	reserved-memory {
+		s2pt@a0000000 { // reserved for S2 page table, 4MB
+			reg = <0x0 0xa0000000 0 0x00400000>;
+			no-map;
+		};
+		bpf_used@b0000000 { // reserved for eBPF, 8MB
+			reg = <0x0 0xb0000000 0 0x00800000>;
+			no-map;
+		};
+	};
+
 
 	vms {
 		vm1 {

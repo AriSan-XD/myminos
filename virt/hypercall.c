@@ -144,22 +144,25 @@ static int misc_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 
 static int bpf_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 {
-	// int ret = 114514;
+	uint64_t ret = 114514;
 
 	switch (id) {
 	case HVC_BPF_CREATE:
-        bpf_dev_create();
-		HVC_RET1(c, 11111);
+		ret = bpf_dev_create();
+		HVC_RET1(c, ret);
 		break;
 	case HVC_BPF_DESTROY:
-		HVC_RET1(c, 2222);
+		HVC_RET1(c, ret);
 		break;
 	case HVC_BPF_MMAP:
-		HVC_RET1(c, 3333);
+		ret = bpf_dev_mmap();
+		HVC_RET1(c, ret);
 		break;
 	default:
 		break;
 	}
+
+	HVC_RET1(c, -EINVAL);
 }
 
 DEFINE_HVC_HANDLER("vm_hvc_handler", HVC_TYPE_VM0,
