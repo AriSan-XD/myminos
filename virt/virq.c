@@ -312,11 +312,11 @@ int send_virq_to_vm(struct vm *vm, uint32_t virq)
 	if (!desc)
 		return -ENOENT;
 
-	if (!virq_is_enabled(desc)) {
-		pr_err("virq%d for %s is not enabled, drop it\n",
-				virq, vm->name);
-		return -EAGAIN;
-	}
+	// if (!virq_is_enabled(desc)) {
+	// 	pr_err("virq%d for %s is not enabled, drop it\n",
+	// 			virq, vm->name);
+	// 	return -EAGAIN;
+	// }
 
 	if (virq_is_hw(desc)) {
 		pr_err("can not send hw irq in here %d\n", virq);

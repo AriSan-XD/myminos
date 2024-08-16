@@ -27,6 +27,7 @@ unsigned long bpf_dev_mmap(void)
 
 unsigned long bpf_dev_create(void)
 {
+	struct vm *vm = get_host_vm();
 	unsigned long ret = 114514;
 	unsigned long vttbr = 0;
 	unsigned long lvl_0_pa = 0;
