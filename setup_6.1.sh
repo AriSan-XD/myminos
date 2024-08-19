@@ -1,12 +1,15 @@
 MINOS="/home/arisan/HDD/workspace/myminos"
 LINUX="/home/arisan/HDD/src/linux-6.1.38"
-IMG="/home/arisan/HDD/workspace/myminos/virtio-sd-6.1.img"
+IMG="/home/arisan/HDD/workspace/myminos/arch.img"
 cd $MINOS
 make -j10
 # rm -r $LINUX/drivers/minos
 # cp -r $MINOS/generic/minos-linux-driver $LINUX/drivers/minos
 cd $LINUX
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j10 Image
+mount -o loop,offset=71303168 $IMG /mnt
+sudo make modules_install INSTALL_MOD_PATH=/mnt ARCH=arm64
+umount /mnt
 cd $MINOS
 dtc qemu-virt.dts > qemu-virt.dtb
 cd $MINOS/tools/mkrmd

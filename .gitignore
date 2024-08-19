@@ -124,3 +124,5 @@ asm-offset.h
 
 u-boot/
 *.img
+tmp1
+tmp2
