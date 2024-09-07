@@ -3,10 +3,12 @@
 
 #include <linux/types.h>
 
+
 struct moat_prog
 {
     uint32_t vmid;
-    struct mm_struct mm;
+    void *pgdp;
+    struct list_head list;
 };
 
 unsigned long moat_bpf_mmap(void);
