@@ -1,10 +1,10 @@
-#include <bpf/bpf_dev.h>
+#include <moat/moat_bpf.h>
 #include <minos/print.h>
 #include <virt/vm.h>
 
 unsigned long prints2(uint64_t base, int depth);
 
-unsigned long bpf_dev_mmap(void)
+unsigned long moat_bpf_mmap(void)
 {
 	struct vm *vm = get_host_vm();
 	unsigned long ret = 114514;
@@ -12,22 +12,50 @@ unsigned long bpf_dev_mmap(void)
 	unsigned long lvl_0_pa = 0;
 	unsigned long content = 0;
 	asm volatile("mrs %0, vttbr_el2": "=r"(vttbr)::);
-	pr_notice("vttbr_el2: %lx\n", vttbr);
+	pr_debug("vttbr_el2: %lx\n", vttbr);
 	lvl_0_pa = ((((vttbr >> 1) >> 7) & 0xfffffffff) << 8);
 	asm volatile("ldr %0, [%1]": "=r"(content):"r"(lvl_0_pa):"memory");
-	pr_notice("content of vttbr_el2: %lx\n", content);
+	pr_debug("content of vttbr_el2: %lx\n", content);
 	ret = create_guest_mapping(&vm->mm, 0xb0000000, 0xb0000000, 
 			0x2000, VM_NORMAL | VM_RW);
 	if (ret)
 		pr_err("map S2PT for guest failed\n");
 	else
-		pr_notice("map S2PT for guest success\n");
+		pr_debug("map S2PT for guest success\n");
 	return ret;
 }
 
-unsigned long bpf_dev_create(void)
+void moat_bpf_unmmap(mm_struct *mm)
 {
-	struct vm *vm = get_host_vm();
+
+}
+
+unsigned long moat_bpf_create(void)
+{
+	int ret = 0;
+	struct moat_prog *prog;
+	struct mm_struct *mm = &prog->mm;
+
+	prog = malloc(sizeof(struct moat_prog));
+	if (!prog)
+		return -ENOMEM;
+
+	/* reuse the vmid allocation, up tp CONFIG_MAX_VM(64) */
+	prog->vmid = alloc_new_vmid();
+	if (prog->vmid)
+	{
+		pr_err("vm allocated failed\n");	
+		return -ENOVMID;
+	}
+
+	/* allocate stage-2 pgd for this BPF */
+	mm->pgdp = arch_alloc_guest_pgd();
+	if (mm->pgdp == NULL)
+	{
+		pr_err("No memory for vm page table\n");
+		return -ENOMEM;
+	}
+
 	unsigned long ret = 114514;
 	unsigned long vttbr = 0;
 	unsigned long lvl_0_pa = 0;
@@ -37,7 +65,7 @@ unsigned long bpf_dev_create(void)
 	lvl_0_pa = ((((vttbr >> 1) >> 7) & 0xfffffffff) << 8);
 	asm volatile("ldr %0, [%1]": "=r"(content):"r"(lvl_0_pa):"memory");
 	pr_notice("content of vttbr_el2: %lx\n", content);
-	ret = prints2(lvl_0_pa, 0);
+	// ret = prints2(lvl_0_pa, 0);
 	
 	return ret;
 }

@@ -146,4 +146,7 @@
 
 #define EOTHERSIDECLOSED 135	/* the otherside of this kobject is closed */
 
+/* for moat */
+#define ENOVMID 136
+
 #endif

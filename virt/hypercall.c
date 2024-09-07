@@ -24,7 +24,7 @@
 #include <virt/vmcs.h>
 #include <virt/os.h>
 #include <virt/vm_pm.h>
-#include <bpf/bpf_dev.h>
+#include <moat/moat_bpf.h>
 
 static int vm_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 {
@@ -142,20 +142,20 @@ static int misc_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 	HVC_RET1(c, -EINVAL);
 }
 
-static int bpf_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
+static int moat_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 {
 	uint64_t ret = 114514;
 
 	switch (id) {
-	case HVC_BPF_CREATE:
-		ret = bpf_dev_create();
+	case HVC_MOAT_CREATE:
+		ret = moat_bpf_create();
 		HVC_RET1(c, ret);
 		break;
-	case HVC_BPF_DESTROY:
+	case HVC_MOAT_DESTROY:
 		HVC_RET1(c, ret);
 		break;
-	case HVC_BPF_MMAP:
-		ret = bpf_dev_mmap();
+	case HVC_MOAT_MMAP:
+		ret = moat_bpf_mmap();
 		HVC_RET1(c, ret);
 		break;
 	default:
@@ -171,5 +171,5 @@ DEFINE_HVC_HANDLER("vm_hvc_handler", HVC_TYPE_VM0,
 DEFINE_HVC_HANDLER("misc_hvc_handler", HVC_TYPE_MISC,
 		HVC_TYPE_MISC, misc_hvc_handler);
 
-DEFINE_HVC_HANDLER("bpf_hvc_handler", HVC_TYPE_BPF,
-		HVC_TYPE_BPF, bpf_hvc_handler);
+DEFINE_HVC_HANDLER("moat_hvc_handler", HVC_TYPE_MOAT,
+		HVC_TYPE_MOAT, moat_hvc_handler);

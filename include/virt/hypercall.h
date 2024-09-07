@@ -6,7 +6,7 @@
 #define HVC_TYPE_MISC			(0x9)
 #define HVC_TYPE_VMBOX			(0xa)
 #define HVC_TYPE_DEBUG_CONSOLE		(0xb)
-#define HVC_TYPE_BPF			(0xc)
+#define HVC_TYPE_MOAT			(0xc)
 
 #define HVC_CALL_BASE			(0xc0000000)
 
@@ -16,7 +16,7 @@
 #define HVC_MISC_FN(n)			HVC_CALL_NUM(HVC_TYPE_MISC, n)
 #define HVC_VMBOX_FN(n)			HVC_CALL_NUM(HVC_TYPE_VMBOX, n)
 #define HVC_VMBOX_DEBUG_CONSOLE(n)	HVC_CALL_NUM(HVC_TYPE_DEBUG_CONSOLE, n)
-#define HVC_BPF_FN(n)			HVC_CALL_NUM(HVC_TYPE_BPF, n)
+#define HVC_MOAT_FN(n)			HVC_CALL_NUM(HVC_TYPE_MOAT, n)
 
 /* hypercall for vm releated operation */
 #define	HVC_VM_CREATE			HVC_VM0_FN(0)
@@ -49,9 +49,9 @@
 #define HVC_DC_OPEN			HVC_VMBOX_DEBUG_CONSOLE(4)
 #define HVC_DC_CLOSE			HVC_VMBOX_DEBUG_CONSOLE(5)
 
-/* hypercall for eBPF isolation releated operation */
-#define HVC_BPF_CREATE      HVC_BPF_FN(0)
-#define HVC_BPF_DESTROY     HVC_BPF_FN(1)
-#define HVC_BPF_MMAP        HVC_BPF_FN(2)
+/* hypercall for MOAT BPF isolation releated operation */
+#define HVC_MOAT_CREATE      HVC_MOAT_FN(0)
+#define HVC_MOAT_DESTROY     HVC_MOAT_FN(1)
+#define HVC_MOAT_MMAP        HVC_MOAT_FN(2)
 
 #endif

@@ -10,7 +10,7 @@
 		minos,stdout = "pl011";
 		bootargs = "bootwait=1 tty=vm1 rootfs=virtio-blk.drv";
 		minos,ramdisk-start = <0x0 0x44000000>;
-		minos,ramdisk-end = <0x0 0x4645A000>;
+		minos,ramdisk-end = <0x0 0x46e5A000>;
 	};
 
 	psci {
@@ -48,12 +48,12 @@
 			type = "linux";
 			kernel_image = "Image";
 			dtb_image = "qemu-virt.dtb";
-			vcpus = <2>;
-			entry = <0x0 0x46680000>;
+			vcpus = <4>;
+			entry = <0x0 0x47080000>;
 			setup_data = <0x0 0x50000000>;
 			vcpu_affinity = <0 1 2 3>;
 			cmdline = "console=hvc0 earlycon=dbcon,io,0x0 loglevel=8 consolelog=9 root=/dev/vda2 rw";
-			memory = <0x0 0x46600000 0x0 0x40000000>;
+			memory = <0x0 0x47000000 0x0 0x40000000>;
 			vm1_bdi {
 				vm_console_vm1 {
 					virtual_device;
