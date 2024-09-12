@@ -360,7 +360,7 @@ static struct vcpu *create_vcpu(struct vm *vm, uint32_t vcpu_id)
 	return vcpu;
 }
 
-static int alloc_new_vmid(void)
+int alloc_new_vmid(void)
 {
 	int vmid, start = total_vms;
 

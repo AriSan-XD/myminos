@@ -3,10 +3,11 @@
 #include <virt/vm.h>
 
 LIST_HEAD(moat_prog_list);
+struct moat_prog *moat_progs[CONFIG_MAX_MOAT_BPF];
 
-unsigned long prints2(uint64_t base, int depth);
+int prints2(uint64_t base, int depth);
 
-uint64_t get_host_vttbr(void)
+static uint64_t get_host_vttbr(void)
 {
 	void *pgdp;
 	uint64_t current_vttbr, host_vttbr;
@@ -18,44 +19,95 @@ uint64_t get_host_vttbr(void)
 	return host_vttbr;
 }
 
-struct moat_prog *get_moat_prog(uint32_t vmid)
-{
-	struct moat_prog *prog;
-	list_for_each_entry(prog, &moat_prog_list, list)
-	{
-		if (prog->vmid == vmid)
-			return prog;
-	}
-	return NULL;
-}
-unsigned long moat_bpf_mmap(uint32_t vmid)
-{
-	struct vm *vm = get_host_vm();
-	struct moat_prog *prog;
 
-	prog = get_moat_prog(vmid);
+static int do_moat_mmap(struct moat_prog *prog, virt_addr_t vir, phy_addr_t phy, size_t size)
+{
+	struct mm_struct *mm = &prog->mm;
+	unsigned long tmp;
+	int ret;
+
+	// if (!IS_PAGE_ALIGN(vir) || !IS_PAGE_ALIGN(size))
+	// {
+	// 	pr_err("%s fail not align base: 0x%p or size: 0x%x", 
+	// 			__func__, vir, size);
+	// 	return -EINVAL;
+	// }
+
+	tmp = BALIGN(vir + size, PAGE_SIZE);
+	vir = ALIGN(vir, PAGE_SIZE);
+	phy = ALIGN(phy, PAGE_SIZE);
+	size = tmp - vir;	
+
+	ret = arch_guest_map(mm, vir, vir + size, phy, VM_NORMAL | VM_RW);
+	if (ret)
+	{
+		pr_err("%s failed\n", __func__);
+		return ret;
+	}
+	
+	return 0;
+}
+
+/*
+ * offset - the base address need to be mapped
+ * size - the size need to mapped
+ */
+int moat_mmap(struct moat_prog *prog, unsigned long ipa, size_t size)
+{
+	// struct vmm_area *va;
+	int ret;
+	int nr_pages;
+	unsigned long start, pstart;
+
+	nr_pages = PAGE_NR(size);
+
+	// va = alloc_free_vmm_area(&prog->mm, size, PAGE_MASK, VM_GUEST_NORMAL);
+	start = (unsigned long)get_free_pages(nr_pages);
+	if (!start)
+	{
+		pr_err("no memory for moat prog\n");
+		return -ENOMEM;
+	}
+	pstart = vtop(start);	
+
+	pr_info("%s start:0x%x size:0x%x\n", __func__, start, size);
+	ret = do_moat_mmap(prog, ipa, pstart, size);
+	if (ret)
+	{
+		pr_err("mmap failed\n");
+		free_pages((void *)pstart);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+/* hypercall: MOAT_BPF_MMAP */
+int moat_bpf_mmap(unsigned long ipa, unsigned long size, uint32_t vmid)
+{
+	struct moat_prog *prog;
+	// uint64_t vttbr = 0; 
+	unsigned long ret;
+
+	pr_info("Invoke moat_bpf_mmap, ipa:0x%x, size:0x%x, vmid:%d\n", 
+			ipa, size, vmid);
+
+	prog = get_moat_prog_by_id(vmid);
 	if (prog == NULL)
 	{
 		pr_err("no moat prog of vmid: %d\n", vmid);
-		return -ENOVMID;
+		return -ENOPROG;
 	}
-	
-	unsigned long ret = 114514;
-	unsigned long vttbr = 0;
-	unsigned long lvl_0_pa = 0;
-	unsigned long content = 0;
-	asm volatile("mrs %0, vttbr_el2": "=r"(vttbr)::);
-	pr_debug("vttbr_el2: %lx\n", vttbr);
-	lvl_0_pa = ((((vttbr >> 1) >> 7) & 0xfffffffff) << 8);
-	asm volatile("ldr %0, [%1]": "=r"(content):"r"(lvl_0_pa):"memory");
-	pr_debug("content of vttbr_el2: %lx\n", content);
-	ret = create_guest_mapping(&vm->mm, 0xb0000000, 0xb0000000, 
-			0x2000, VM_NORMAL | VM_RW);
-	if (ret)
-		pr_err("map S2PT for guest failed\n");
-	else
-		pr_debug("map S2PT for guest success\n");
-	return ret;
+
+	ret = moat_mmap(prog, ipa, size);
+	if (!ret) {
+		pr_info("moat_bpf_mmap successed size: 0x%x, at ipa 0x%p\n", size, ipa);
+		// vttbr = vtop(prog->mm.pgdp) | ((uint64_t)prog->vmid << 48);
+		prints2((uint64_t)prog->mm.pgdp, 0);
+		return 0;
+	}
+
+	return -EINVAL;
 }
 
 void moat_bpf_unmmap(void)
@@ -64,27 +116,39 @@ void moat_bpf_unmmap(void)
 }
 
 
-unsigned long moat_bpf_create(void)
+int moat_bpf_create(void)
 {
-	int ret = 0;
 	uint64_t vttbr = 0;
+	uint64_t current_vttbr = 0;
 	struct moat_prog *prog;
+	struct mm_struct *mm;
+
+	/* for test, suppose to be done in init */
+	memset(moat_progs, 0, sizeof(moat_progs));
 
 	prog = malloc(sizeof(struct moat_prog));
 	if (!prog)
 		return -ENOMEM;
+	memset(prog, 0, sizeof(struct moat_prog));
+
+	current_vttbr = read_sysreg(VTTBR_EL2);
+	pr_info("current vttbr: %lx\n", current_vttbr);
 
 	/* reuse the vmid allocation, up tp CONFIG_MAX_VM(64) */
 	prog->vmid = alloc_new_vmid();
-	if (prog->vmid)
+	if (prog->vmid == 0)
 	{
 		pr_err("vm allocated failed\n");	
 		return -ENOVMID;
 	}
 
+	mm = &prog->mm;
+	mm->pgdp = NULL;
+	spin_lock_init(&mm->lock);
+
 	/* allocate stage-2 pgd for this BPF */
-	prog->pgdp = arch_alloc_guest_pgd();
-	if (prog->pgdp == NULL)
+	mm->pgdp = arch_alloc_guest_pgd();
+	if (mm->pgdp == NULL)
 	{
 		pr_err("No memory for vm page table\n");
 		return -ENOMEM;
@@ -92,22 +156,26 @@ unsigned long moat_bpf_create(void)
 
 	init_list(&prog->list);
 	list_add_tail(&moat_prog_list, &prog->list);
+	moat_progs[prog->vmid] = prog;
 
-	vttbr = vtop(prog->pgdp) | ((uint64_t)prog->vmid << 48);
+	vttbr = vtop(mm->pgdp) | ((uint64_t)prog->vmid << 48);
 
 	pr_info("allocated stage-2 pgd at: %lx, vttbr: %lx for vmid: %d\n", 
-			prog->pgdp, vttbr, prog->vmid);
+			mm->pgdp, vttbr, prog->vmid);
+
+	pr_info("host vttbr: %lx\n", get_host_vttbr());
 	
 	return vttbr;
 }
 
-unsigned long prints2(uint64_t base, int depth)
+int prints2(uint64_t base, int depth)
 {
 	int i = 0;
-    if (depth > 1)
+    if (depth > 2)
         return 0;
     uint64_t *pagetable = (uint64_t *)base;
-    pr_info("base: 0x%lx\n", base);
+	if (depth == 0)
+	    pr_info("base: 0x%lx\n", base);
     for (i = 0; i < 512; i++)
     {
         uint64_t pte = pagetable[i];

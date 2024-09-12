@@ -2,7 +2,7 @@ MINOS="/home/arisan/HDD/workspace/myminos"
 LINUX="/home/arisan/HDD/src/linux-6.1.38"
 IMG="/home/arisan/HDD/workspace/myminos/arch_large.img"
 cd $MINOS
-make -j10
+make
 # rm -r $LINUX/drivers/minos
 # cp -r $MINOS/generic/minos-linux-driver $LINUX/drivers/minos
 cd $LINUX
@@ -13,8 +13,8 @@ sudo make modules_install INSTALL_MOD_PATH=/mnt ARCH=arm64
 umount /mnt
 cd $MINOS
 dtc qemu-virt.dts > qemu-virt.dtb
-# cd $MINOS/tools/mkrmd
-# make
+cd $MINOS/tools/mkrmd
+make
 cd $MINOS
 $MINOS/tools/mkrmd/mkrmd -f ramdisk-6.1.bin $LINUX/arch/arm64/boot/Image $MINOS/qemu-virt.dtb
 mount -o loop,offset=32256 $IMG /mnt

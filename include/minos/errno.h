@@ -148,5 +148,6 @@
 
 /* for moat */
 #define ENOVMID 136
+#define ENOPROG 137
 
 #endif

@@ -144,7 +144,7 @@ static int misc_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 
 static int moat_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 {
-	uint64_t ret = 114514;
+	int ret = 114514;
 
 	switch (id) {
 	case HVC_MOAT_CREATE:
@@ -155,7 +155,7 @@ static int moat_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 		HVC_RET1(c, ret);
 		break;
 	case HVC_MOAT_MMAP:
-		ret = moat_bpf_mmap();
+		ret = moat_bpf_mmap(args[0], args[1], args[2]);
 		HVC_RET1(c, ret);
 		break;
 	default:
