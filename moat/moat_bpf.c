@@ -36,9 +36,37 @@ static int do_moat_mmap(struct moat_prog *prog, virt_addr_t vir, phy_addr_t phy,
 	tmp = BALIGN(vir + size, PAGE_SIZE);
 	vir = ALIGN(vir, PAGE_SIZE);
 	phy = ALIGN(phy, PAGE_SIZE);
-	size = tmp - vir;	
-
+	size = tmp - vir;
+	
+	spin_lock(&mm->lock);
 	ret = arch_guest_map(mm, vir, vir + size, phy, VM_NORMAL | VM_RW);
+	spin_unlock(&mm->lock);
+	if (ret)
+	{
+		pr_err("%s failed\n", __func__);
+		return ret;
+	}
+	
+	return 0;
+}
+
+static int do_moat_unmmap(struct moat_prog *prog, virt_addr_t vir, size_t size)
+{
+	struct mm_struct *mm = &prog->mm;
+	unsigned long end;
+	int ret;
+
+	if (!IS_PAGE_ALIGN(vir) || !IS_PAGE_ALIGN(size)) {
+		pr_warn("WARN: destroy guest mapping [0x%x 0x%x]\n",
+				vir, vir + size);
+		end = PAGE_BALIGN(vir + size);
+		vir = PAGE_ALIGN(vir);
+		size = end - vir;
+	}
+	
+	spin_lock(&mm->lock);
+	ret = arch_guest_unmap(mm, vir, vir + size);
+	spin_unlock(&mm->lock);
 	if (ret)
 	{
 		pr_err("%s failed\n", __func__);
@@ -87,7 +115,7 @@ int moat_bpf_mmap(unsigned long ipa, unsigned long size, uint32_t vmid)
 {
 	struct moat_prog *prog;
 	// uint64_t vttbr = 0; 
-	unsigned long ret;
+	int ret;
 
 	pr_info("Invoke moat_bpf_mmap, ipa:0x%x, size:0x%x, vmid:%d\n", 
 			ipa, size, vmid);
@@ -110,9 +138,27 @@ int moat_bpf_mmap(unsigned long ipa, unsigned long size, uint32_t vmid)
 	return -EINVAL;
 }
 
-void moat_bpf_unmmap(void)
+/* hypercall: MOAT_BPF_UNMMAP */
+void moat_bpf_unmmap(unsigned long ipa, unsigned long size, uint32_t vmid)
 {
+	struct moat_prog *prog;
+	int ret;
+	
+	pr_info("Invoke moat_bpf_unmmap, ipa:0x%x, size:0x%x, vmid:%d\n", 
+			ipa, size, vmid);
 
+	prog = get_moat_prog_by_id(vmid);
+	if (prog == NULL)
+	{
+		pr_err("no moat prog of vmid: %d\n", vmid);
+		return;
+	}
+
+	ret = do_moat_unmmap(prog, ipa, size);
+	if (!ret)
+		pr_info("moat_bpf_unmmap successed size: 0x%x, at ipa 0x%p\n", size, ipa);
+	else
+		pr_err("moat_bpf_unmmap failed\n");
 }
 
 

@@ -5,11 +5,9 @@
 #include <minos/list.h>
 #include <virt/vm.h>
 
-#define CONFIG_MAX_MOAT_BPF	(CONFIG_MAX_VM - 1)
+#define PAR_PA_MSK (0x3ffffffUL << 12)
 
-/* 512GB VN for one moat bpf */
-#define MOAT_IPA_START	(0UL) 
-#define MOAT_IPA_END	S2_VIRT_MAX
+#define CONFIG_MAX_MOAT_BPF	(CONFIG_MAX_VM - 1)
 
 struct moat_prog
 {

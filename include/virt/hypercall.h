@@ -53,5 +53,6 @@
 #define HVC_MOAT_CREATE      HVC_MOAT_FN(0)
 #define HVC_MOAT_DESTROY     HVC_MOAT_FN(1)
 #define HVC_MOAT_MMAP        HVC_MOAT_FN(2)
+#define HVC_MOAT_UNMMAP      HVC_MOAT_FN(3)
 
 #endif

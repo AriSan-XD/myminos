@@ -53,6 +53,7 @@ struct mm_struct {
 	 */
 	struct list_head vmm_area_free;
 	struct list_head vmm_area_used;
+	int is_moat;
 };
 
 int vm_mm_init(struct vm *vm);

@@ -32,13 +32,23 @@
 #include <virt/os.h>
 #include <asm/vtcb.h>
 #include <asm/tlb.h>
+#include <moat/moat_bpf.h>
 
 static uint32_t mpidr_el1[NR_CPUS];
 
 void flush_all_tlb_mm(struct mm_struct *mm)
 {
-	struct vm *vm = container_of(mm, struct vm, mm);
-	uint64_t vttbr = vtop(mm->pgdp) | ((uint64_t)vm->vmid << 48);
+	uint64_t vttbr;
+	if (mm->is_moat)
+	{
+		struct moat_prog *prog = container_of(mm, struct moat_prog, mm);
+		vttbr = vtop(mm->pgdp) | ((uint64_t)prog->vmid << 48);
+	}
+	else
+	{
+		struct vm *vm = container_of(mm, struct vm, mm);
+		vttbr = vtop(mm->pgdp) | ((uint64_t)vm->vmid << 48);
+	}
 	unsigned long flags;
 	uint64_t old_vttbr;
 
