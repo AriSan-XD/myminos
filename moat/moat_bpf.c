@@ -2,6 +2,7 @@
 #include <minos/print.h>
 #include <virt/vm.h>
 
+uint64_t original_vttbr;
 LIST_HEAD(moat_prog_list);
 struct moat_prog *moat_progs[CONFIG_MAX_MOAT_BPF];
 
@@ -19,6 +20,32 @@ static uint64_t get_host_vttbr(void)
 	return host_vttbr;
 }
 
+/* insert vmid to ipa when doing mapping */
+static unsigned long insert_vmid_to_ipa(unsigned long ipa, uint32_t vmid)
+{
+	return (ipa | ((uint64_t)vmid << IPA_VMID_SHIFT));
+}
+
+/* extract vmid from ipa, then use vmid to find prog and translate ipa to pa*/
+static unsigned long ipa_to_pa_vmid(unsigned long ipa, unsigned long *pa)
+{
+	unsigned long vmid;
+	struct moat_prog *prog;
+	struct mm_struct *mm;
+	// void *pgdp;
+	
+	vmid = (ipa & IPA_VMID_MSK) >> IPA_VMID_SHIFT;
+	prog = get_moat_prog_by_id(vmid);
+	mm = &prog->mm;
+	
+	if (!prog)
+	{
+		pr_err("[%s]no moat prog of vmid: %d\n", __func__, vmid);
+		return -ENOPROG;
+	}
+		
+	return translate_guest_ipa(mm, ipa, pa);
+}
 
 static int do_moat_mmap(struct moat_prog *prog, virt_addr_t vir, phy_addr_t phy, size_t size)
 {
@@ -50,7 +77,7 @@ static int do_moat_mmap(struct moat_prog *prog, virt_addr_t vir, phy_addr_t phy,
 	return 0;
 }
 
-static int do_moat_unmmap(struct moat_prog *prog, virt_addr_t vir, size_t size)
+static int do_moat_unmmap(struct moat_prog *prog, virt_addr_t vir, size_t size, bool shared)
 {
 	struct mm_struct *mm = &prog->mm;
 	unsigned long end;
@@ -73,6 +100,9 @@ static int do_moat_unmmap(struct moat_prog *prog, virt_addr_t vir, size_t size)
 		return ret;
 	}
 	
+	if (!shared)
+		free_pages((void *)vir);
+	
 	return 0;
 }
 
@@ -80,25 +110,34 @@ static int do_moat_unmmap(struct moat_prog *prog, virt_addr_t vir, size_t size)
  * offset - the base address need to be mapped
  * size - the size need to mapped
  */
-int moat_mmap(struct moat_prog *prog, unsigned long ipa, size_t size)
+int moat_mmap(struct moat_prog *prog, unsigned long ipa, size_t size, bool shared)
 {
-	// struct vmm_area *va;
 	int ret;
 	int nr_pages;
 	unsigned long start, pstart;
-
-	nr_pages = PAGE_NR(size);
-
-	// va = alloc_free_vmm_area(&prog->mm, size, PAGE_MASK, VM_GUEST_NORMAL);
-	start = (unsigned long)get_free_pages(nr_pages);
-	if (!start)
+	
+	if (shared)
 	{
-		pr_err("no memory for moat prog\n");
-		return -ENOMEM;
+		ret = ipa_to_pa_vmid(ipa, &pstart);
+		if (ret)
+		{
+			pr_err("translate ipa_to_pa_vmid failed\n");
+			return ret;
+		}
 	}
-	pstart = vtop(start);	
+	else
+	{
+		nr_pages = PAGE_NR(size);
+		start = (unsigned long)get_free_pages(nr_pages);
+		if (!start)
+		{
+			pr_err("no memory for moat prog\n");
+			return -ENOMEM;
+		}
+		pstart = vtop(start);
+	}
 
-	pr_info("%s start:0x%x size:0x%x\n", __func__, start, size);
+	pr_info("%s pstart:0x%x size:0x%x\n", __func__, pstart, size);
 	ret = do_moat_mmap(prog, ipa, pstart, size);
 	if (ret)
 	{
@@ -111,7 +150,7 @@ int moat_mmap(struct moat_prog *prog, unsigned long ipa, size_t size)
 }
 
 /* hypercall: MOAT_BPF_MMAP */
-int moat_bpf_mmap(unsigned long ipa, unsigned long size, uint32_t vmid)
+int moat_bpf_mmap(unsigned long ipa, unsigned long size, uint32_t vmid, bool shared)
 {
 	struct moat_prog *prog;
 	// uint64_t vttbr = 0; 
@@ -123,11 +162,11 @@ int moat_bpf_mmap(unsigned long ipa, unsigned long size, uint32_t vmid)
 	prog = get_moat_prog_by_id(vmid);
 	if (prog == NULL)
 	{
-		pr_err("no moat prog of vmid: %d\n", vmid);
+		pr_err("[%s]no moat prog of vmid: %d\n", __func__, vmid);
 		return -ENOPROG;
 	}
 
-	ret = moat_mmap(prog, ipa, size);
+	ret = moat_mmap(prog, ipa, size, shared);
 	if (!ret) {
 		pr_info("moat_bpf_mmap successed size: 0x%x, at ipa 0x%p\n", size, ipa);
 		// vttbr = vtop(prog->mm.pgdp) | ((uint64_t)prog->vmid << 48);
@@ -139,7 +178,7 @@ int moat_bpf_mmap(unsigned long ipa, unsigned long size, uint32_t vmid)
 }
 
 /* hypercall: MOAT_BPF_UNMMAP */
-void moat_bpf_unmmap(unsigned long ipa, unsigned long size, uint32_t vmid)
+int moat_bpf_unmmap(unsigned long ipa, unsigned long size, uint32_t vmid, bool shared)
 {
 	struct moat_prog *prog;
 	int ret;
@@ -150,38 +189,45 @@ void moat_bpf_unmmap(unsigned long ipa, unsigned long size, uint32_t vmid)
 	prog = get_moat_prog_by_id(vmid);
 	if (prog == NULL)
 	{
-		pr_err("no moat prog of vmid: %d\n", vmid);
-		return;
+		pr_err("[%s]no moat prog of vmid: %d\n", __func__, vmid);
+		return -ENOPROG;
 	}
 
-	ret = do_moat_unmmap(prog, ipa, size);
+	ret = do_moat_unmmap(prog, ipa, size, shared);
 	if (!ret)
 		pr_info("moat_bpf_unmmap successed size: 0x%x, at ipa 0x%p\n", size, ipa);
-	else
+	else	
+	{
 		pr_err("moat_bpf_unmmap failed\n");
+		return -EFAULT;
+	}
+
+	return 0;
 }
 
-
+/* hypercall: HVC_MOAT_CREATE */
 int moat_bpf_create(void)
 {
 	uint64_t vttbr = 0;
-	uint64_t current_vttbr = 0;
 	struct moat_prog *prog;
 	struct mm_struct *mm;
 
 	/* for test, suppose to be done in init */
 	memset(moat_progs, 0, sizeof(moat_progs));
-
+	
 	prog = malloc(sizeof(struct moat_prog));
 	if (!prog)
 		return -ENOMEM;
 	memset(prog, 0, sizeof(struct moat_prog));
-
-	current_vttbr = read_sysreg(VTTBR_EL2);
-	pr_info("current vttbr: %lx\n", current_vttbr);
+	
+	prog->mm.is_moat = true;
+	
+	original_vttbr = read_vttbr_el2();
+	pr_info("original vttbr: %lx\n", original_vttbr);
 
 	/* reuse the vmid allocation, up tp CONFIG_MAX_VM(64) */
 	prog->vmid = alloc_new_vmid();
+	pr_info("allocated vmid: %d\n", prog->vmid);
 	if (prog->vmid == 0)
 	{
 		pr_err("vm allocated failed\n");	
@@ -211,7 +257,81 @@ int moat_bpf_create(void)
 
 	pr_info("host vttbr: %lx\n", get_host_vttbr());
 	
-	return vttbr;
+	return prog->vmid;
+}
+
+static int do_moat_bpf_destroy(void *pfn, int depth)
+{
+	int i = 0;
+	
+	if (depth > 2)
+		return 0;
+	for(i = 0; i < 512; i++)
+	{
+		pte_t *pte = (pte_t *)pfn + i;
+		if ((*pte) & 1)
+		{
+			pte_t *child = (pte_t *)ptov((*pte & S2_PHYSICAL_MASK));
+			
+			if ((*pte) & 2)
+				do_moat_bpf_destroy(child, depth + 1);
+			free_pages(child);
+			WRITE_ONCE(*pte, 0);
+			__dsb(ishst);
+		}
+	}
+	return 0;
+}
+
+int moat_bpf_destroy(unsigned int vmid)
+{
+	void *pgdp;
+	struct moat_prog *prog;
+	struct mm_struct *mm;
+	
+	prog = get_moat_prog_by_id(vmid);
+	if (!prog)
+	{
+		pr_err("[%s]no moat prog of vmid: %d\n", __func__, vmid);
+		return -ENOPROG;
+	}
+	
+	mm = &prog->mm;
+	pgdp = mm->pgdp;
+
+	do_moat_bpf_destroy(pgdp, 0);
+
+	list_del(&prog->list);
+	free(prog);
+
+	destroy_vmid(vmid);
+	
+	return 0;
+}
+
+/* hypercall: HVC_MOAT_SWITCH_TO */
+void moat_bpf_switch_to(uint32_t vmid)
+{
+	uint64_t vttbr = 0;
+	uint64_t pgdp;
+	struct moat_prog *prog;
+	
+	prog = get_moat_prog_by_id(vmid);
+	if (!prog)
+	{
+		pr_err("[%s]no moat prog of vmid: %d\n", __func__, vmid);
+		return;
+	}
+	pgdp = vtop(prog->mm.pgdp);
+	vttbr = pgdp | ((uint64_t)vmid << 48);
+	
+	write_vttbr_el2(vttbr);
+}
+
+/* hypercall: HVC_MOAT_SWITCH_BACK */
+void moat_bpf_switch_back(void)
+{
+	write_vttbr_el2(original_vttbr);
 }
 
 int prints2(uint64_t base, int depth)

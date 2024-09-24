@@ -378,6 +378,13 @@ out:
 	return vmid;
 }
 
+void destroy_vmid(int vmid)
+{
+	spin_lock(&vms_lock);
+	clear_bit(vmid, vmid_bitmap);
+	spin_unlock(&vms_lock);
+}
+
 static int vcpu_affinity_init(void)
 {
 	int i;

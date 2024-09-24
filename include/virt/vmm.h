@@ -53,7 +53,9 @@ struct mm_struct {
 	 */
 	struct list_head vmm_area_free;
 	struct list_head vmm_area_used;
-	int is_moat;
+	/* for moat */
+	bool is_moat;
+	bool moat_shared;
 };
 
 int vm_mm_init(struct vm *vm);

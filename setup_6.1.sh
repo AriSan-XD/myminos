@@ -8,18 +8,18 @@ make
 cd $LINUX
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j10 Image
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules -j10
-mount -o loop,offset=104889856 $IMG /mnt
+sudo mount -o loop,offset=104889856 $IMG /mnt
 sudo make modules_install INSTALL_MOD_PATH=/mnt ARCH=arm64
-umount /mnt
+sudo umount /mnt
 cd $MINOS
 dtc qemu-virt.dts > qemu-virt.dtb
 cd $MINOS/tools/mkrmd
 make
 cd $MINOS
 $MINOS/tools/mkrmd/mkrmd -f ramdisk-6.1.bin $LINUX/arch/arm64/boot/Image $MINOS/qemu-virt.dtb
-mount -o loop,offset=32256 $IMG /mnt
-cp $MINOS/minos.bin /mnt/kernel.bin
-cp $MINOS/dtbs/qemu-arm64.dtb /mnt
-cp $MINOS/ramdisk-6.1.bin /mnt/ramdisk.bin
-umount /mnt
+sudo mount -o loop,offset=32256 $IMG /mnt
+sudo cp $MINOS/minos.bin /mnt/kernel.bin
+sudo cp $MINOS/dtbs/qemu-arm64.dtb /mnt
+sudo cp $MINOS/ramdisk-6.1.bin /mnt/ramdisk.bin
+sudo umount /mnt
 # cp $MINOS/generic/minos-linux-driver/minos_hypercall.h /home/arisan/HDD/Arm/testcase/minos/minos_hypercall.h

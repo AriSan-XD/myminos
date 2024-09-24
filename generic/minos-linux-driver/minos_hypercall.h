@@ -20,7 +20,7 @@
 
 /* hypercall for vm releated operation */
 #define	HVC_VM_CREATE			HVC_VM0_FN(0)
-#define HVC_VM_DESTORY			HVC_VM0_FN(1)
+#define HVC_VM_DESTROY			HVC_VM0_FN(1)
 #define HVC_VM_RESTART			HVC_VM0_FN(2)
 #define HVC_VM_POWER_UP			HVC_VM0_FN(3)
 #define HVC_VM_POWER_DOWN		HVC_VM0_FN(4)
@@ -84,7 +84,7 @@ static inline int hvc_vm_create(void *vmtag)
 
 static inline int hvc_vm_destroy(int vmid)
 {
-	return minos_hvc1(HVC_VM_DESTORY, vmid);
+	return minos_hvc1(HVC_VM_DESTROY, vmid);
 }
 
 static inline int hvc_vm_reset(int vmid)

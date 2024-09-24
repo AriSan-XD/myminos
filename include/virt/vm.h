@@ -197,6 +197,7 @@ void destroy_vm(struct vm *vm);
 
 struct vm *get_host_vm(void);
 int alloc_new_vmid(void);
+void destroy_vmid(int vmid);
 
 static inline struct vm *get_vm_by_id(uint32_t vmid)
 {

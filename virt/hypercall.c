@@ -152,11 +152,22 @@ static int moat_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 		HVC_RET1(c, ret);
 		break;
 	case HVC_MOAT_DESTROY:
+		ret = moat_bpf_destroy(args[0]);
 		HVC_RET1(c, ret);
 		break;
 	case HVC_MOAT_MMAP:
-		ret = moat_bpf_mmap(args[0], args[1], args[2]);
+		ret = moat_bpf_mmap(args[0], args[1], args[2], args[3]);
 		HVC_RET1(c, ret);
+		break;
+	case HVC_MOAT_UNMMAP:
+		ret = moat_bpf_unmmap(args[0], args[1], args[2], args[3]);
+		HVC_RET1(c, ret);
+		break;
+	case HVC_MOAT_SWITCH_TO:
+		moat_bpf_switch_to(args[0]);
+		break;
+	case HVC_MOAT_SWITCH_BACK:
+		moat_bpf_switch_back();
 		break;
 	default:
 		break;
