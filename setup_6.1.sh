@@ -16,7 +16,7 @@ dtc qemu-virt.dts > qemu-virt.dtb
 cd $MINOS/tools/mkrmd
 make
 cd $MINOS
-$MINOS/tools/mkrmd/mkrmd -f ramdisk-6.1.bin $LINUX/arch/arm64/boot/Image $MINOS/qemu-virt.dtb
+sudo $MINOS/tools/mkrmd/mkrmd -f ramdisk-6.1.bin $LINUX/arch/arm64/boot/Image $MINOS/qemu-virt.dtb
 sudo mount -o loop,offset=32256 $IMG /mnt
 sudo cp $MINOS/minos.bin /mnt/kernel.bin
 sudo cp $MINOS/dtbs/qemu-arm64.dtb /mnt

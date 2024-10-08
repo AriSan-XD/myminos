@@ -32,7 +32,8 @@
 
 void vcpu_dump(struct vcpu *vcpu, gp_regs *regs)
 {
-	pr_fatal("!!!! VCPU%d of VM%d [%s] fault !!!!\n");
+	pr_fatal("!!!! VCPU%d of VM%d [%s] fault !!!!\n",
+			vcpu->vcpu_id, vcpu->vm->vmid, vcpu->vm->name);
 	arch_dump_register(regs);
 	dump_vcpu_vmodule_state(vcpu);
 }

@@ -24,6 +24,7 @@
 #include <minos/irq.h>
 #include <asm/svccc.h>
 #include <virt/vdev.h>
+#include <moat/moat_bpf.h>
 
 static inline int taken_from_el1(uint64_t spsr)
 {
@@ -190,9 +191,32 @@ static int access_system_reg_handler(gp_regs *reg, int ec, uint32_t esr_value)
 	return ret;
 }
 
+static inline unsigned long get_faulting_ipa(unsigned long vaddr);
+
 static int insabort_tfl_handler(gp_regs *reg, int ec, uint32_t esr_value)
 {
-	panic("%s\n", __func__);
+	uint64_t va, ipa, pa;
+	uint32_t vmid;
+
+	pr_info("%s\n", __func__);
+
+	pr_fatal("esr_el2: 0x%lx\n", read_sysreg(ESR_EL2));
+	va = read_sysreg(FAR_EL2);
+	ipa = get_faulting_ipa(va);
+	translate_guest_ipa(&(get_host_vm()->mm), ipa, &pa);
+
+	pr_info("faulting va: 0x%lx\n", va);
+	pr_info("faulting ipa: 0x%lx\n", ipa);
+	pr_info("faulting pa: 0x%lx\n", pa);
+
+	vmid = read_vttbr_el2() >> IPA_VMID_SHIFT;
+	moat_bpf_mmap(ipa, PAGE_SIZE, vmid, true);
+
+	pr_fatal("ttbr1_el1: 0x%lx\n", read_sysreg(TTBR1_EL1));
+	pr_fatal("vttbr_el2: 0x%lx\n", read_sysreg(VTTBR_EL2));
+	// moat_bpf_switch_back();
+
+	// panic("%s\n", __func__);
 	return 0;
 }
 
