@@ -2,6 +2,7 @@
 #include <minos/print.h>
 #include <virt/vm.h>
 
+int in_bpf_vmid[CONFIG_MAX_CPU_NR] = {0};
 uint64_t original_vttbr;
 LIST_HEAD(moat_prog_list);
 struct moat_prog *moat_progs[CONFIG_MAX_MOAT_BPF];
@@ -127,7 +128,7 @@ int moat_alloc_mmap(struct mm_struct *mm, unsigned long ipa, size_t size)
 	}
 	pstart = vtop(start);
 
-	pr_info("%s pstart:0x%x size:0x%x\n", __func__, pstart, size);
+	pr_debug("%s pstart:0x%x size:0x%x\n", __func__, pstart, size);
 	ret = do_moat_mmap(mm, ipa, pstart, size);
 	if (ret)
 	{
@@ -161,17 +162,17 @@ int moat_bpf_mmap(unsigned long ipa, unsigned long size, uint32_t vmid, bool sha
 			pr_err("ipa_to_pa_vmid of vmid 1 failed\n");
 			return -EFAULT;
 		}
-		pr_info("shared mapping, ipa: 0x%lx, pa: 0x%lx, size: 0x%lx\n", ipa, pstart, size);
+		pr_debug("shared mapping, ipa: 0x%lx, pa: 0x%lx, size: 0x%lx\n", ipa, pstart, size);
 		ret = do_moat_mmap(&prog->mm, ipa, pstart, size);
 	}
 	else
 	{
-		pr_info("non-shared mapping\n");
+		pr_debug("non-shared mapping\n");
 		ret = moat_alloc_mmap(&prog->mm, ipa, size);
 	}
 
 	if (!ret) {
-		pr_info("moat_bpf_mmap successed size: 0x%x, ipa: 0x%lx, vmid: %d\n", size, ipa, vmid);
+		pr_debug("moat_bpf_mmap successed size: 0x%x, ipa: 0x%lx, vmid: %d\n", size, ipa, vmid);
 
 		return 0;
 	}
@@ -347,6 +348,8 @@ void moat_bpf_switch_to(uint32_t vmid)
 	struct moat_prog *prog;
 	unsigned long flags;
 	
+	pr_info("[%s]\n", __func__);
+
 	prog = get_moat_prog_by_id(vmid);
 	if (!prog)
 	{
@@ -357,28 +360,107 @@ void moat_bpf_switch_to(uint32_t vmid)
 	vttbr = pgdp | ((uint64_t)vmid << 48);
 
 	pr_info("vttbr before switch: %lx\n", read_sysreg(VTTBR_EL2));
-	pr_info("trying to switch vttbr\n");
+	pr_info("trying to switch to bpf vttbr\n");
 	
-	local_irq_save(flags);
+	in_bpf_vmid[get_vcpu_id(get_current_vcpu())] = vmid;
 
+	local_irq_save(flags);
 	write_vttbr_el2(vttbr);	
+	local_irq_restore(flags);
+
 	pr_info("current vttbr: %lx\n", read_sysreg(VTTBR_EL2));
 
-	local_irq_restore(flags);
+
 }
 
 /* hypercall: HVC_MOAT_SWITCH_BACK */
 void moat_bpf_switch_back(void)
 {
+	unsigned long flags;
+
+	pr_info("[%s]\n", __func__);
+
+	in_bpf_vmid[get_vcpu_id(get_current_vcpu())] = 0;
+	local_irq_save(flags);
 	write_vttbr_el2(original_vttbr);
-	pr_info("vttbr switched back\n");
+	local_irq_restore(flags);
+
+	pr_info("vttbr switched back to original\n");
 	pr_info("current vttbr: %lx\n", read_sysreg(VTTBR_EL2));
 }
 
+/* hypercall: HVC_MOAT_MAYBE_SWITCH_BACK */
+void moat_maybe_switch_back(void)
+{
+	int vmid = in_bpf_vmid[get_vcpu_id(get_current_vcpu())];
+	pr_info("[%s]\n", __func__);
+	if (vmid == 0)
+		return;
+	unsigned long flags;
+
+	in_bpf_vmid[get_vcpu_id(get_current_vcpu())] = 0;
+	local_irq_save(flags);
+	write_vttbr_el2(original_vttbr);
+	local_irq_restore(flags);
+
+	pr_info("[MAYBE] vttbr switched back to original\n");
+	pr_info("[MAYBE] current vttbr: %lx\n", read_sysreg(VTTBR_EL2));
+}
+
+/* hypercall: HVC_MOAT_IRQ_SWITCH_TO */
+void moat_irq_switch_to(void)
+{
+	int vmid = in_bpf_vmid[get_vcpu_id(get_current_vcpu())];
+	pr_info("[%s]\n", __func__);
+	if (vmid == 0)
+		return;
+		
+	uint64_t vttbr = 0;
+	uint64_t pgdp;
+	struct moat_prog *prog;
+	unsigned long flags;
+
+	prog = get_moat_prog_by_id(vmid);
+	if (!prog)
+	{
+		pr_err("[%s] no moat prog of vmid: %d\n", __func__, vmid);
+		return;
+	}
+	pgdp = vtop(prog->mm.pgdp);
+	vttbr = pgdp | ((uint64_t)vmid << 48);
+
+	pr_info("[IRQ] vttbr before switch: %lx\n", read_sysreg(VTTBR_EL2));
+	pr_info("[IRQ] trying to switch to bpf vttbr\n");
+	
+	local_irq_save(flags);
+	write_vttbr_el2(vttbr);	
+	local_irq_restore(flags);
+
+	pr_info("[IRQ] current vttbr: %lx\n", read_sysreg(VTTBR_EL2));
+
+}
+
+/* hypercall: HVC_MOAT_IRQ_SWITCH_BACK */
+void moat_irq_switch_back(void)
+{
+	int vmid = in_bpf_vmid[get_vcpu_id(get_current_vcpu())];
+	pr_info("[%s]\n", __func__);
+	if (vmid == 0)
+		return;
+	unsigned long flags;
+
+	local_irq_save(flags);
+	write_vttbr_el2(original_vttbr);
+	local_irq_restore(flags);
+
+	pr_info("[IRQ] vttbr switched back to original\n");
+	pr_info("[IRQ] current vttbr: %lx\n", read_sysreg(VTTBR_EL2));
+}
+
 /* 
-* hypercall: HVC_MOAT_MEMCPY 
-* input: ipa
-*/
+ * hypercall: HVC_MOAT_MEMCPY 
+ * input: ipa
+ */
 int moat_bpf_memcpy(void *dest, const void *src, size_t n, unsigned int vmid)
 {
 	unsigned long pa_dest, pa_src;

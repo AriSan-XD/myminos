@@ -1,6 +1,6 @@
 MINOS="/home/arisan/HDD/workspace/myminos"
 LINUX="/home/arisan/HDD/src/linux-6.1.38"
-IMG="/home/arisan/HDD/workspace/myminos/arch_large.img"
+IMG="/home/arisan/HDD/workspace/myminos/arch.img"
 cd $MINOS
 make
 # rm -r $LINUX/drivers/minos
@@ -8,7 +8,7 @@ make
 cd $LINUX
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j10 Image
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules -j10
-sudo mount -o loop,offset=104889856 $IMG /mnt
+sudo mount -o loop,offset=157318656 $IMG /mnt
 sudo make modules_install INSTALL_MOD_PATH=/mnt ARCH=arm64
 sudo umount /mnt
 cd $MINOS

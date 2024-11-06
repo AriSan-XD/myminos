@@ -165,15 +165,27 @@ static int moat_hvc_handler(gp_regs *c, uint32_t id, uint64_t *args)
 		break;
 	case HVC_MOAT_SWITCH_TO:
 		moat_bpf_switch_to(args[0]);
-		HVC_RET1(c, ret);
+		HVC_RET0();
 		break;
 	case HVC_MOAT_SWITCH_BACK:
 		moat_bpf_switch_back();
-		HVC_RET1(c, ret);
+		HVC_RET0();
 		break;
 	case HVC_MOAT_MEMCPY:
 		ret = moat_bpf_memcpy((void *)args[0], (void *)args[1], args[2], args[3]);
 		HVC_RET1(c, ret);
+		break;
+	case HVC_MOAT_MAYBE_SWITCH_BACK:
+		moat_maybe_switch_back();
+		HVC_RET0();
+		break;
+	case HVC_MOAT_IRQ_SWITCH_TO:
+		moat_irq_switch_to();
+		HVC_RET0();
+		break;
+	case HVC_MOAT_IRQ_SWITCH_BACK:
+		moat_irq_switch_back();
+		HVC_RET0();
 		break;
 	default:
 		break;

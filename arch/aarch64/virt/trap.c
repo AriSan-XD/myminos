@@ -207,16 +207,18 @@ static int insabort_tfl_handler(gp_regs *reg, int ec, uint32_t esr_value)
 
 	pr_info("faulting va: 0x%lx\n", va);
 	pr_info("faulting ipa: 0x%lx\n", ipa);
+	pr_info("va to ipa:0x%lx\n",guest_va_to_ipa(read_sysreg(FAR_EL2), 0));
 	pr_info("faulting pa: 0x%lx\n", pa);
 
-	vmid = read_vttbr_el2() >> IPA_VMID_SHIFT;
-	moat_bpf_mmap(ipa, PAGE_SIZE, vmid, true);
+	// vmid = read_vttbr_el2() >> IPA_VMID_SHIFT;
+	// moat_bpf_mmap(ipa, PAGE_SIZE, vmid, true);
 
 	pr_fatal("ttbr1_el1: 0x%lx\n", read_sysreg(TTBR1_EL1));
 	pr_fatal("vttbr_el2: 0x%lx\n", read_sysreg(VTTBR_EL2));
+	
 	// moat_bpf_switch_back();
-
-	// panic("%s\n", __func__);
+	vcpu_fault(current_vcpu, reg);
+	//panic("%s\n", __func__);
 	return 0;
 }
 
@@ -282,6 +284,12 @@ static int dataabort_tfl_handler(gp_regs *regs, int ec, uint32_t esr_value)
 	if (!(esr_value & ESR_ELx_ISV)) {
 		pr_err("Instruction syndrome not valid\n");
 		goto out_fail;
+		// int vmid;
+		// vaddr = read_sysreg(FAR_EL2);
+		// ipa = get_faulting_ipa(vaddr);
+		// vmid = read_vttbr_el2() >> IPA_VMID_SHIFT;
+		// moat_bpf_mmap(ipa, PAGE_SIZE, vmid, true);
+		return 0;
 	}
 
 	iswrite = dabt_iswrite(esr_value);
@@ -310,6 +318,9 @@ static int dataabort_tfl_handler(gp_regs *regs, int ec, uint32_t esr_value)
 	return 0;
 
 out_fail:
+	pr_info("faulting va: 0x%lx\n", read_sysreg(FAR_EL2));
+	pr_info("faulting ipa: 0x%lx\n", get_faulting_ipa(read_sysreg(FAR_EL2)));
+	pr_info("va to ipa:0x%lx\n",guest_va_to_ipa(read_sysreg(FAR_EL2), 0));
 	vcpu_fault(current_vcpu, regs);
 	/*
 	 * the VCPU will exit when return to guest.

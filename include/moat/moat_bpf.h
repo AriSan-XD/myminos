@@ -23,6 +23,7 @@ struct moat_prog
 
 extern struct moat_prog *moat_progs[CONFIG_MAX_MOAT_BPF];
 extern struct list_head moat_prog_list;
+extern int in_bpf_vmid[];
 
 static inline struct moat_prog *get_moat_prog_by_id(uint32_t vmid)
 {
@@ -47,5 +48,8 @@ int moat_bpf_unmmap(unsigned long ipa, unsigned long size, uint32_t vmid, bool s
 void moat_bpf_switch_to(uint32_t vmid);
 void moat_bpf_switch_back(void);
 int moat_bpf_memcpy(void *dest, const void *src, size_t n, unsigned int vmid);
+void moat_maybe_switch_back(void);
+void moat_irq_switch_to(void);
+void moat_irq_switch_back(void);
 
 #endif

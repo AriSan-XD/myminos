@@ -315,7 +315,7 @@ static int stage2_map_pte_range(struct mm_struct *vs, pte_t *ptep, unsigned long
 		stage2_set_pte(pte, pte_attr | physical);
 		pr_debug("map pte range 0x%lx 0x%lx\n", start, pte_attr | physical);
 		if (old_pte) {
-			pr_warn("pte range 0x%lx remaped old 0x%lx new 0x%lx\n",
+			pr_debug("pte range 0x%lx remaped old 0x%lx new 0x%lx\n",
 					start, old_pte, pte_attr | physical);
 		}
 	} while (pte++, start += PAGE_SIZE, physical += PAGE_SIZE, start != end);

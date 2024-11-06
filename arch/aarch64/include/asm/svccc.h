@@ -30,7 +30,7 @@
 #define SVC_STYPE_TRUST_OS_END		(0x3f)
 #define SVC_STYPE_MAX			(64)
 
-#define SVC_RET()		{	\
+#define SVC_RET0()		{	\
 	return 0;			\
 }
 
